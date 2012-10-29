@@ -381,21 +381,23 @@ static int http_action(
 	if (!stream)
 		return -1;
 
-	if (!git__prefixcmp(url, prefix_http)) {
-		url = url + strlen(prefix_http);
-		default_port = "80";
+	if (!t->host || !t->port || !t->path) {
+		if (!git__prefixcmp(url, prefix_http)) {
+			url = url + strlen(prefix_http);
+			default_port = "80";
+		}
+
+		if (!git__prefixcmp(url, prefix_https)) {
+			url += strlen(prefix_https);
+			default_port = "443";
+			t->use_ssl = 1;
+		}
+
+		if ((ret = gitno_extract_host_and_port(&t->host, &t->port, url, default_port)) < 0)
+			return ret;
+
+		t->path = strchr(url, '/');
 	}
-
-	if (!git__prefixcmp(url, prefix_https)) {
-		url += strlen(prefix_https);
-		default_port = "443";
-		t->use_ssl = 1;
-	}
-
-	if ((ret = gitno_extract_host_and_port(&t->host, &t->port, url, default_port)) < 0)
-		return ret;
-
-	t->path = strchr(url, '/');
 
 	if (!t->connected || !http_should_keep_alive(&t->parser)) {
 		if (t->use_ssl) {

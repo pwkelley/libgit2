@@ -179,6 +179,9 @@ static void git_smart__free(git_transport *transport)
 	/* Make sure that the current stream is closed, if we have one. */
 	git_smart__close(transport);
 
+	/* Free the subtransport */
+	t->wrapped->free(t->wrapped);
+
 	git_vector_foreach(refs, i, p) {
 		git_pkt_free(p);
 	}
