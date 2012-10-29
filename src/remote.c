@@ -14,7 +14,6 @@
 #include "remote.h"
 #include "fetch.h"
 #include "refs.h"
-#include "pkt.h"
 
 #include <regex.h>
 
@@ -476,8 +475,10 @@ int git_remote_connect(git_remote *remote, int direction)
 
 	t->progress_cb = remote->callbacks.progress;
 	t->cb_data = remote->callbacks.data;
+	
+	if (!remote->check_cert)
+		t->flags |= GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
 
-	t->check_cert = remote->check_cert;
 	if (t->connect(t, direction) < 0) {
 		goto on_error;
 	}
@@ -493,30 +494,14 @@ on_error:
 
 int git_remote_ls(git_remote *remote, git_headlist_cb list_cb, void *payload)
 {
-	git_vector *refs = &remote->transport->refs;
-	unsigned int i;
-	git_pkt *p = NULL;
-
 	assert(remote);
 
-	if (!remote->transport || !remote->transport->connected) {
+	if (!remote->transport) {
 		giterr_set(GITERR_NET, "The remote is not connected");
 		return -1;
 	}
 
-	git_vector_foreach(refs, i, p) {
-		git_pkt_ref *pkt = NULL;
-
-		if (p->type != GIT_PKT_REF)
-			continue;
-
-		pkt = (git_pkt_ref *)p;
-
-		if (list_cb(&pkt->head, payload))
-			return GIT_EUSER;
-	}
-
-	return 0;
+	return remote->transport->ls(remote->transport, list_cb, payload);
 }
 
 int git_remote_download(
@@ -534,53 +519,60 @@ int git_remote_download(
 	return git_fetch_download_pack(remote, progress_cb, progress_payload);
 }
 
+static int update_tips_callback(git_remote_head *head, void *payload)
+{
+	git_vector *refs = (git_vector *)payload;
+	git_vector_insert(refs, head);
+
+        return 0;
+}
+
 int git_remote_update_tips(git_remote *remote)
 {
 	int error = 0, autotag;
 	unsigned int i = 0;
 	git_buf refname = GIT_BUF_INIT;
 	git_oid old;
-	git_pkt *pkt;
 	git_odb *odb;
-	git_vector *refs;
 	git_remote_head *head;
 	git_reference *ref;
 	struct git_refspec *spec;
 	git_refspec tagspec;
+	git_vector refs;
 
 	assert(remote);
 
-	refs = &remote->transport->refs;
 	spec = &remote->fetch;
-
-	if (refs->length == 0)
-		return 0;
-
+	
 	if (git_repository_odb__weakptr(&odb, remote->repo) < 0)
 		return -1;
 
 	if (git_refspec__parse(&tagspec, GIT_REFSPEC_TAGS, true) < 0)
 		return -1;
 
-	/* HEAD is only allowed to be the first in the list */
-	pkt = refs->contents[0];
-	head = &((git_pkt_ref *)pkt)->head;
-	if (!strcmp(head->name, GIT_HEAD_FILE)) {
-		if (git_reference_create_oid(&ref, remote->repo, GIT_FETCH_HEAD_FILE, &head->oid, 1) < 0)
-			return -1;
+	/* Make a copy of the transport's refs */
+	if (git_vector_init(&refs, 16, NULL) < 0)
+		return -1;
 
-		i = 1;
-		git_reference_free(ref);
+	if (remote->transport->ls(remote->transport, update_tips_callback, &refs) < 0)
+		goto on_error;
+
+	/* Let's go find HEAD, if it exists. Check only the first ref in the vector. */
+	if (refs.length > 0) {
+		head = (git_remote_head *)refs.contents[0];
+
+		if (!strcmp(head->name, GIT_HEAD_FILE))	{
+			if (git_reference_create_oid(&ref, remote->repo, GIT_FETCH_HEAD_FILE, &head->oid, 1) < 0)
+				goto on_error;
+
+			i = 1;
+			git_reference_free(ref);
+		}
 	}
 
-	for (; i < refs->length; ++i) {
-		git_pkt *pkt = refs->contents[i];
+	for (; i < refs.length; ++i) {
+		head = (git_remote_head *)refs.contents[i];
 		autotag = 0;
-
-		if (pkt->type == GIT_PKT_REF)
-			head = &((git_pkt_ref *)pkt)->head;
-		else
-			continue;
 
 		/* Ignore malformed ref names (which also saves us from tag^{} */
 		if (!git_reference_is_valid_name(head->name))
@@ -630,11 +622,13 @@ int git_remote_update_tips(git_remote *remote)
 		}
 	}
 
+	git_vector_free(&refs);
 	git_refspec__free(&tagspec);
 	git_buf_free(&refname);
 	return 0;
 
 on_error:
+	git_vector_free(&refs);
 	git_refspec__free(&tagspec);
 	git_buf_free(&refname);
 	return -1;

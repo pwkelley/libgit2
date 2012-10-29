@@ -4,15 +4,21 @@
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
  */
-
-#ifndef INCLUDE_pkt_h__
-#define INCLUDE_pkt_h__
-
-#include "common.h"
+#include "git2.h"
 #include "transport.h"
+#include "vector.h"
+#include "netops.h"
 #include "buffer.h"
-#include "posix.h"
-#include "git2/net.h"
+
+#define GIT_SIDE_BAND_DATA     1
+#define GIT_SIDE_BAND_PROGRESS 2
+#define GIT_SIDE_BAND_ERROR    3
+
+#define GIT_CAP_OFS_DELTA "ofs-delta"
+#define GIT_CAP_MULTI_ACK "multi_ack"
+#define GIT_CAP_SIDE_BAND "side-band"
+#define GIT_CAP_SIDE_BAND_64K "side-band-64k"
+#define GIT_CAP_INCLUDE_TAG "include-tag"
 
 enum git_pkt_type {
 	GIT_PKT_CMD,
@@ -80,12 +86,46 @@ typedef struct {
 	char error[GIT_FLEX_ARRAY];
 } git_pkt_err;
 
+typedef struct transport_smart_caps {
+	int common:1,
+		ofs_delta:1,
+		multi_ack: 1,
+		side_band:1,
+		side_band_64k:1,
+		include_tag:1;
+} transport_smart_caps;
+
+typedef void (*packetsize_cb)(int received, void *payload);
+
+typedef struct {
+	git_transport parent;
+	git_smart_subtransport *wrapped;
+	git_smart_subtransport_stream *current_stream;
+	transport_smart_caps caps;	
+	git_vector refs;
+	git_vector common;
+	packetsize_cb packetsize_cb;
+	void *packetsize_payload;
+	unsigned rpc : 1,
+		have_refs : 1;
+	gitno_buffer buffer;
+	char buffer_data[65536];
+} transport_smart;
+
+/* smart_protocol.c */
+int git_smart__store_refs(transport_smart *t, int flushes);
+int git_smart__detect_caps(git_pkt_ref *pkt, transport_smart_caps *caps);
+int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, const git_vector *wants);
+int git_smart__download_pack(git_transport *transport, git_repository *repo, git_transfer_progress *stats, git_transfer_progress_callback progress_cb, void *progress_payload);
+
+/* smart.c */
+int git_smart__negotiation_step(git_transport *transport, void *data, size_t len);
+
+/* smart_pkt.c */
 int git_pkt_parse_line(git_pkt **head, const char *line, const char **out, size_t len);
 int git_pkt_buffer_flush(git_buf *buf);
 int git_pkt_send_flush(GIT_SOCKET s);
 int git_pkt_buffer_done(git_buf *buf);
-int git_pkt_buffer_wants(const git_vector *refs, git_transport_caps *caps, git_buf *buf);
+int git_pkt_buffer_wants(const git_vector *refs, transport_smart_caps *caps, git_buf *buf);
 int git_pkt_buffer_have(git_oid *oid, git_buf *buf);
 void git_pkt_free(git_pkt *pkt);
-
-#endif
