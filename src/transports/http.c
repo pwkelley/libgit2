@@ -10,6 +10,7 @@
 #include "http_parser.h"
 #include "transport.h"
 #include "buffer.h"
+#include "netops.h"
 
 static const char *prefix_http = "http://";
 static const char *prefix_https = "https://";
