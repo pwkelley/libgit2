@@ -18,8 +18,13 @@
 
 typedef struct {
 	git_transport parent;
+	char *url;
+	int direction;
+	int flags;
+	git_atomic cancelled;
 	git_repository *repo;
 	git_vector refs;
+	unsigned connected : 1;
 } transport_local;
 
 static int add_ref(transport_local *t, const char *name)
@@ -125,7 +130,7 @@ on_error:
  * Try to open the url as a git directory. The direction doesn't
  * matter in this case because we're calulating the heads ourselves.
  */
-static int local_connect(git_transport *transport, int direction)
+static int local_connect(git_transport *transport, const char *url, int direction, int flags)
 {
 	git_repository *repo;
 	int error;
@@ -133,18 +138,21 @@ static int local_connect(git_transport *transport, int direction)
 	const char *path;
 	git_buf buf = GIT_BUF_INIT;
 
-	GIT_UNUSED(direction);
+	t->url = git__strdup(url);
+	GITERR_CHECK_ALLOC(t->url);
+	t->direction = direction;
+	t->flags = flags;
 
 	/* The repo layer doesn't want the prefix */
-	if (!git__prefixcmp(transport->url, "file://")) {
-		if (git_path_fromurl(&buf, transport->url) < 0) {
+	if (!git__prefixcmp(t->url, "file://")) {
+		if (git_path_fromurl(&buf, t->url) < 0) {
 			git_buf_free(&buf);
 			return -1;
 		}
 		path = git_buf_cstr(&buf);
 
 	} else { /* We assume transport->url is already a path */
-		path = transport->url;
+		path = t->url;
 	}
 
 	error = git_repository_open(&repo, path);
@@ -159,7 +167,7 @@ static int local_connect(git_transport *transport, int direction)
 	if (store_refs(t) < 0)
 		return -1;
 
-	t->parent.connected = 1;
+	t->connected = 1;
 
 	return 0;
 }
@@ -170,7 +178,7 @@ static int local_ls(git_transport *transport, git_headlist_cb list_cb, void *pay
 	unsigned int i;
 	git_remote_head *head = NULL;
 
-	if (!transport->connected) {
+	if (!t->connected) {
 		giterr_set(GITERR_NET, "The transport is not connected");
 		return -1;
 	}
@@ -193,11 +201,36 @@ static int local_negotiate_fetch(git_transport *transport, git_repository *repo,
 	return -1;
 }
 
+static int local_is_connected(git_transport *transport, int *connected)
+{
+	transport_local *t = (transport_local *)transport;
+
+	*connected = t->connected;
+
+	return 0;
+}
+
+static int local_read_flags(git_transport *transport, int *flags)
+{
+	transport_local *t = (transport_local *)transport;
+
+	*flags = t->flags;
+
+	return 0;
+}
+
+static void local_cancel(git_transport *transport)
+{
+	transport_local *t = (transport_local *)transport;
+
+	git_atomic_set(&t->cancelled, 1);
+}
+
 static int local_close(git_transport *transport)
 {
 	transport_local *t = (transport_local *)transport;
 
-	t->parent.connected = 0;
+	t->connected = 0;
 	git_repository_free(t->repo);
 	t->repo = NULL;
 
@@ -219,7 +252,7 @@ static void local_free(git_transport *transport)
 	}
 	git_vector_free(vec);
 
-	git__free(t->parent.url);
+	git__free(t->url);
 	git__free(t);
 }
 
@@ -243,6 +276,9 @@ int git_transport_local(git_transport **out, void *param)
 	t->parent.close = local_close;
 	t->parent.free = local_free;
 	t->parent.ls = local_ls;
+	t->parent.is_connected = local_is_connected;
+	t->parent.read_flags = local_read_flags;
+	t->parent.cancel = local_cancel;
 
 	*out = (git_transport *) t;
 

@@ -10,6 +10,9 @@
 #include "git2.h"
 #include "transport.h"
 #include "buffer.h"
+#include "posix.h"
+#include "netops.h"
+#include "smart.h"
 
 #include <winhttp.h>
 #pragma comment(lib, "winhttp")
@@ -40,6 +43,7 @@ typedef struct {
 
 typedef struct {
 	git_smart_subtransport parent;
+	git_transport *owner;
 	const char *path;
 	char *host;
 	char *port;
@@ -373,9 +377,10 @@ static void winhttp_free(git_smart_subtransport *smart_transport)
 	git__free(t);
 }
 
-int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport *parent)
+int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport *owner)
 {
 	winhttp_subtransport *t;
+	int flags;
 
 	if (!out)
 		return -1;
@@ -383,10 +388,17 @@ int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport *
 	t = (winhttp_subtransport *)git__calloc(sizeof(winhttp_subtransport), 1);
 	GITERR_CHECK_ALLOC(t);
 
+	t->owner = owner;
 	t->parent.action = winhttp_action;
 	t->parent.free = winhttp_free;
 
-	t->no_check_cert = parent->flags & GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
+	/* Read the flags from the owning transport */
+	if (owner->read_flags && owner->read_flags(owner, &flags) < 0) {
+		git__free(t);
+		return -1;
+	}
+
+	t->no_check_cert = flags & GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
 
 	*out = (git_smart_subtransport *) t;
 	return 0;

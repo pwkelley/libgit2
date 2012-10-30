@@ -8,6 +8,7 @@
 #include "git2.h"
 #include "transport.h"
 #include "buffer.h"
+#include "netops.h"
 
 #define OWNING_SUBTRANSPORT(s) ((git_subtransport *)(s)->parent.subtransport)
 
@@ -24,6 +25,7 @@ typedef struct {
 
 typedef struct {
 	git_smart_subtransport parent;
+	git_transport *owner;
 	_git_stream *current_stream;
 } git_subtransport;
 
@@ -255,11 +257,9 @@ static void _git_free(git_smart_subtransport *smart_transport)
 	git__free(t);
 }
 
-int git_smart_subtransport_git(git_smart_subtransport **out, git_transport *parent)
+int git_smart_subtransport_git(git_smart_subtransport **out, git_transport *owner)
 {
 	git_subtransport *t;
-
-	GIT_UNUSED(parent);
 
 	if (!out)
 		return -1;
@@ -267,6 +267,7 @@ int git_smart_subtransport_git(git_smart_subtransport **out, git_transport *pare
 	t = (git_subtransport *)git__calloc(sizeof(git_subtransport), 1);
 	GITERR_CHECK_ALLOC(t);
 
+	t->owner = owner;
 	t->parent.action = _git_action;
 	t->parent.free = _git_free;
 

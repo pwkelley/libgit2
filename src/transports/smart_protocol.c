@@ -229,7 +229,7 @@ int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, c
 		git_pkt_buffer_have(&oid, &data);
 		i++;
 		if (i % 20 == 0) {
-			if (transport->cancel.val) {
+			if (t->cancelled.val) {
 				giterr_set(GITERR_NET, "The fetch was cancelled by the user");
 				error = GIT_EUSER;
 				goto on_error;
@@ -299,7 +299,7 @@ int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, c
 	}
 
 	git_pkt_buffer_done(&data);
-	if (transport->cancel.val) {
+	if (t->cancelled.val) {
 		giterr_set(GITERR_NET, "The fetch was cancelled by the user");
 		error = GIT_EUSER;
 		goto on_error;
@@ -341,12 +341,12 @@ on_error:
 	return error;
 }
 
-static int no_sideband(git_transport *transport, git_indexer_stream *idx, gitno_buffer *buf, git_transfer_progress *stats)
+static int no_sideband(transport_smart *t, git_indexer_stream *idx, gitno_buffer *buf, git_transfer_progress *stats)
 {
 	int recvd;
 
 	do {
-		if (transport->cancel.val) {
+		if (t->cancelled.val) {
 			giterr_set(GITERR_NET, "The fetch was cancelled by the user");
 			return GIT_EUSER;
 		}
@@ -425,7 +425,7 @@ int git_smart__download_pack(
 	 * check which one belongs there.
 	 */
 	if (!t->caps.side_band && !t->caps.side_band_64k) {
-		if (no_sideband(transport, idx, buf, stats) < 0)
+		if (no_sideband(t, idx, buf, stats) < 0)
 			goto on_error;
 
 		git_indexer_stream_free(idx);
@@ -435,7 +435,7 @@ int git_smart__download_pack(
 	do {
 		git_pkt *pkt;
 
-		if (transport->cancel.val) {
+		if (t->cancelled.val) {
 			giterr_set(GITERR_NET, "The fetch was cancelled by the user");
 			error = GIT_EUSER;
 			goto on_error;

@@ -463,6 +463,7 @@ int git_remote_connect(git_remote *remote, int direction)
 {
 	git_transport *t;
 	const char *url;
+	int flags = GIT_TRANSPORTFLAGS_NONE;
 
 	assert(remote);
 
@@ -477,9 +478,9 @@ int git_remote_connect(git_remote *remote, int direction)
 	t->cb_data = remote->callbacks.data;
 	
 	if (!remote->check_cert)
-		t->flags |= GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
+		flags |= GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
 
-	if (t->connect(t, direction) < 0) {
+	if (t->connect(t, url, direction, flags) < 0) {
 		goto on_error;
 	}
 
@@ -637,21 +638,31 @@ on_error:
 
 int git_remote_connected(git_remote *remote)
 {
+	int connected;
+
 	assert(remote);
-	return remote->transport == NULL ? 0 : remote->transport->connected;
+
+	if (!remote->transport || !remote->transport->is_connected)
+		return 0;
+
+	/* Ask the transport if it's connected. */
+	remote->transport->is_connected(remote->transport, &connected);
+
+	return connected;
 }
 
 void git_remote_stop(git_remote *remote)
 {
-	git_atomic_set(&remote->transport->cancel, 1);
+	if (remote->transport->cancel)
+		remote->transport->cancel(remote->transport);
 }
 
 void git_remote_disconnect(git_remote *remote)
 {
 	assert(remote);
 
-	if (remote->transport != NULL && remote->transport->connected)
-			remote->transport->close(remote->transport);
+	if (git_remote_connected(remote))
+		remote->transport->close(remote->transport);
 }
 
 void git_remote_free(git_remote *remote)

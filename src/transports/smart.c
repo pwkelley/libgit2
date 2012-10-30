@@ -38,7 +38,7 @@ GIT_INLINE(void) git_smart__reset_stream(transport_smart *t)
 	}
 }
 
-static int git_smart__connect(git_transport *transport, int direction)
+static int git_smart__connect(git_transport *transport, const char *url, int direction, int flags)
 {
 	transport_smart *t = (transport_smart *)transport;
 	git_smart_subtransport_stream *stream;
@@ -47,11 +47,15 @@ static int git_smart__connect(git_transport *transport, int direction)
 
 	git_smart__reset_stream(t);
 
-	t->parent.direction = direction;
+	t->url = git__strdup(url);
+	GITERR_CHECK_ALLOC(t->url);
+
+	t->direction = direction;
+	t->flags = flags;
 
 	if (GIT_DIR_FETCH == direction)
 	{
-		if ((error = t->wrapped->action(&stream, t->wrapped, t->parent.url, GIT_SERVICE_UPLOADPACK_LS)) < 0)
+		if ((error = t->wrapped->action(&stream, t->wrapped, t->url, GIT_SERVICE_UPLOADPACK_LS)) < 0)
 			return error;
 		
 		/* Save off the current stream (i.e. socket) that we are working with */
@@ -87,7 +91,7 @@ static int git_smart__connect(git_transport *transport, int direction)
 			git_smart__reset_stream(t);
 
 		/* We're now logically connected. */
-		t->parent.connected = 1;
+		t->connected = 1;
 
 		return 0;
 	}
@@ -135,8 +139,8 @@ int git_smart__negotiation_step(git_transport *transport, void *data, size_t len
 	if (t->rpc)
 		git_smart__reset_stream(t);
 
-	if (GIT_DIR_FETCH == t->parent.direction) {
-		if ((error = t->wrapped->action(&stream, t->wrapped, t->parent.url, GIT_SERVICE_UPLOADPACK)) < 0)
+	if (GIT_DIR_FETCH == t->direction) {
+		if ((error = t->wrapped->action(&stream, t->wrapped, t->url, GIT_SERVICE_UPLOADPACK)) < 0)
 			return error;
 
 		/* If this is a stateful implementation, the stream we get back should be the same */
@@ -157,13 +161,38 @@ int git_smart__negotiation_step(git_transport *transport, void *data, size_t len
 	return -1;
 }
 
+static void git_smart__cancel(git_transport *transport)
+{
+	transport_smart *t = (transport_smart *)transport;
+
+	git_atomic_set(&t->cancelled, 1);
+}
+
+static int git_smart__is_connected(git_transport *transport, int *connected)
+{
+	transport_smart *t = (transport_smart *)transport;
+
+	*connected = t->connected;
+
+	return 0;
+}
+
+static int git_smart__read_flags(git_transport *transport, int *flags)
+{
+	transport_smart *t = (transport_smart *)transport;
+
+	*flags = t->flags;
+
+	return 0;
+}
+
 static int git_smart__close(git_transport *transport)
 {
 	transport_smart *t = (transport_smart *)transport;
 	
 	git_smart__reset_stream(t);
 
-	transport->connected = 0;
+	t->connected = 0;
 
 	return 0;
 }
@@ -192,7 +221,7 @@ static void git_smart__free(git_transport *transport)
 	}
 	git_vector_free(common);
 
-	git__free(t->parent.url);
+	git__free(t->url);
 	git__free(t);
 }
 
@@ -215,6 +244,9 @@ int git_transport_smart(git_transport **out, void *param)
 	t->parent.negotiate_fetch = git_smart__negotiate_fetch;
 	t->parent.download_pack = git_smart__download_pack;
 	t->parent.ls = git_smart__ls;
+	t->parent.is_connected = git_smart__is_connected;
+	t->parent.read_flags = git_smart__read_flags;
+	t->parent.cancel = git_smart__cancel;
 	
 	t->rpc = definition->rpc;
 

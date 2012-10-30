@@ -22,7 +22,7 @@ static transport_definition local_transport_definition = { "file://", 1, git_tra
 static transport_definition dummy_transport_definition = { NULL, 1, git_transport_dummy, NULL };
 
 #ifdef GIT_WINHTTP
-static git_smart_subtransport_definition winhttp_subtransport_definition = { git_smart_subtransport_winhttp, 1 };
+static git_smart_subtransport_definition http_subtransport_definition = { git_smart_subtransport_winhttp, 1 };
 #else
 static git_smart_subtransport_definition http_subtransport_definition = { git_smart_subtransport_http, 1 };
 #endif
@@ -31,13 +31,8 @@ static git_smart_subtransport_definition git_subtransport_definition = { git_sma
 
 static transport_definition transports[] = {
 	{"git://", 1, git_transport_smart, &git_subtransport_definition},
-#ifdef GIT_WINHTTP
-	{"http://", 1, git_transport_smart, &winhttp_subtransport_definition},
-	{"https://", 1, git_transport_smart, &winhttp_subtransport_definition},
-#else
 	{"http://", 1, git_transport_smart, &http_subtransport_definition},
 	{"https://", 1, git_transport_smart, &http_subtransport_definition},
-#endif
 	{"file://", 1, git_transport_local, NULL},
 	{"git+ssh://", 1, git_transport_dummy, NULL},
 	{"ssh+git://", 1, git_transport_dummy, NULL},
@@ -109,9 +104,6 @@ int git_transport_new(git_transport **out, const char *url)
 	error = fn(&transport, param);
 	if (error < 0)
 		return error;
-
-	transport->url = git__strdup(url);
-	GITERR_CHECK_ALLOC(transport->url);
 
 	*out = transport;
 

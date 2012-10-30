@@ -99,15 +99,20 @@ typedef void (*packetsize_cb)(int received, void *payload);
 
 typedef struct {
 	git_transport parent;
+	char *url;
+	int direction;
+	int flags;
 	git_smart_subtransport *wrapped;
 	git_smart_subtransport_stream *current_stream;
-	transport_smart_caps caps;	
+	transport_smart_caps caps;
 	git_vector refs;
 	git_vector common;
+	git_atomic cancelled;
 	packetsize_cb packetsize_cb;
 	void *packetsize_payload;
 	unsigned rpc : 1,
-		have_refs : 1;
+		have_refs : 1,
+		connected : 1;
 	gitno_buffer buffer;
 	char buffer_data[65536];
 } transport_smart;

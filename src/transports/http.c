@@ -36,7 +36,8 @@ typedef struct {
 } http_stream;
 
 typedef struct {
-	git_smart_subtransport parent;	
+	git_smart_subtransport parent;
+	git_transport *owner;
 	gitno_socket socket;
 	const char *path;
 	char *host;
@@ -445,9 +446,10 @@ static void http_free(git_smart_subtransport *smart_transport)
 	git__free(t);
 }
 
-int git_smart_subtransport_http(git_smart_subtransport **out, git_transport *parent)
+int git_smart_subtransport_http(git_smart_subtransport **out, git_transport *owner)
 {
 	http_subtransport *t;
+	int flags;
 
 	if (!out)
 		return -1;
@@ -455,10 +457,17 @@ int git_smart_subtransport_http(git_smart_subtransport **out, git_transport *par
 	t = (http_subtransport *)git__calloc(sizeof(http_subtransport), 1);
 	GITERR_CHECK_ALLOC(t);
 
+	t->owner = owner;
 	t->parent.action = http_action;
 	t->parent.free = http_free;
 
-	t->no_check_cert = parent->flags & GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
+	/* Read the flags from the owning transport */
+	if (owner->read_flags && owner->read_flags(owner, &flags) < 0) {
+		git__free(t);
+		return -1;
+	}
+
+	t->no_check_cert = flags & GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
 
 	t->settings.on_header_field = on_header_field;
 	t->settings.on_header_value = on_header_value;

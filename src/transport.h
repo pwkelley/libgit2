@@ -7,12 +7,8 @@
 #ifndef INCLUDE_transport_h__
 #define INCLUDE_transport_h__
 
-#include "git2/net.h"
 #include "git2/indexer.h"
 #include "vector.h"
-#include "posix.h"
-#include "common.h"
-#include "netops.h"
 
 /*
  *** Begin base transport interface ***
@@ -26,28 +22,15 @@ typedef enum {
 } git_transport_flags_t;
 
 typedef struct git_transport {
-	/* The URI of the repository */
-	char *url;
-
-	/* The direction in which the transport is being used: GIT_DIR_FETCH or GIT_DIR_PUSH */
-	int direction;
-
-	/* Various flags which control transport behavior */
-	git_transport_flags_t flags;
-
-	/* True if the transport is connected; false otherwise */
-	int connected : 1;
-
 	/* An opaque value which is passed to callback functions */
 	void *cb_data;
-
-	/* Indicates whether the transport action has been cancelled */
-	git_atomic cancel;
 
 	/* Connect the transport to the remote repository, using the given direction. */
 	int (*connect)(
 		struct git_transport *transport,
-		int direction);
+		const char *url,
+		int direction,
+		int flags);
 
 	/* This function may be called after a successful call to connect(). The provided callback is
 	 * invoked for each ref discovered on the remote end. */
@@ -72,6 +55,15 @@ typedef struct git_transport {
 		git_transfer_progress *stats,
 		git_transfer_progress_callback progress_cb,
 		void *progress_payload);
+
+	/* Checks to see if the transport is connected */
+	int (*is_connected)(struct git_transport *transport, int *connected);
+
+	/* Reads the flags value previously passed into connect() */
+	int (*read_flags)(struct git_transport *transport, int *flags);
+
+	/* Cancels any outstanding transport operation */
+	void (*cancel)(struct git_transport *transport);
 
 	/* This function is the reverse of connect() -- it terminates the connection to the remote end. */
 	int (*close)(struct git_transport *transport);
@@ -120,6 +112,7 @@ struct git_smart_subtransport;
 /* A stream used by the smart transport to read and write data
  * from a subtransport */
 typedef struct git_smart_subtransport_stream {
+	/* The owning subtransport */
 	struct git_smart_subtransport *subtransport;
 
 	int (*read)(
@@ -150,7 +143,7 @@ typedef struct git_smart_subtransport {
 } git_smart_subtransport;
 
 /* A function which creates a new subtransport for the smart transport */
-typedef int (*git_smart_subtransport_cb)(git_smart_subtransport **out, git_transport* parent);
+typedef int (*git_smart_subtransport_cb)(git_smart_subtransport **out, git_transport* owner);
 
 typedef struct git_smart_subtransport_definition {
 	/* The function to use to create the git_smart_subtransport */
@@ -161,9 +154,9 @@ typedef struct git_smart_subtransport_definition {
 } git_smart_subtransport_definition;
 
 /* Smart transport subtransports that come with libgit2 */
-int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport* parent);
-int git_smart_subtransport_http(git_smart_subtransport **out, git_transport* parent);
-int git_smart_subtransport_git(git_smart_subtransport **out, git_transport* parent);
+int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport* owner);
+int git_smart_subtransport_http(git_smart_subtransport **out, git_transport* owner);
+int git_smart_subtransport_git(git_smart_subtransport **out, git_transport* owner);
 
 /*
  *** End interface for subtransports for the smart transport ***
