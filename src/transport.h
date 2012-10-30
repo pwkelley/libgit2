@@ -8,6 +8,7 @@
 #define INCLUDE_transport_h__
 
 #include "git2/indexer.h"
+#include "git2/net.h"
 #include "vector.h"
 
 /*
