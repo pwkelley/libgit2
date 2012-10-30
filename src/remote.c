@@ -474,15 +474,15 @@ int git_remote_connect(git_remote *remote, int direction)
 	if (git_transport_new(&t, url) < 0)
 		return -1;
 
-	t->progress_cb = remote->callbacks.progress;
-	t->cb_data = remote->callbacks.data;
+	if (t->set_callbacks &&
+		t->set_callbacks(t, remote->callbacks.progress, NULL, remote->callbacks.data) < 0)
+		goto on_error;
 	
 	if (!remote->check_cert)
 		flags |= GIT_TRANSPORTFLAGS_NO_CHECK_CERT;
 
-	if (t->connect(t, url, direction, flags) < 0) {
+	if (t->connect(t, url, direction, flags) < 0)
 		goto on_error;
-	}
 
 	remote->transport = t;
 
@@ -791,10 +791,11 @@ void git_remote_set_callbacks(git_remote *remote, git_remote_callbacks *callback
 
 	memcpy(&remote->callbacks, callbacks, sizeof(git_remote_callbacks));
 
-	if (remote->transport) {
-		remote->transport->progress_cb = remote->callbacks.progress;
-		remote->transport->cb_data = remote->callbacks.data;
-	}
+	if (remote->transport && remote->transport->set_callbacks)
+		remote->transport->set_callbacks(remote->transport,
+			remote->callbacks.progress,
+			NULL,
+			remote->callbacks.data);
 }
 
 const git_transfer_progress* git_remote_stats(git_remote *remote)

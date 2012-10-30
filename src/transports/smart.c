@@ -38,6 +38,21 @@ GIT_INLINE(void) git_smart__reset_stream(transport_smart *t)
 	}
 }
 
+static int git_smart__set_callbacks(
+	git_transport *transport,
+	git_transport_message_cb progress_cb,
+	git_transport_message_cb error_cb,
+	void *message_cb_payload)
+{
+	transport_smart *t = (transport_smart *)transport;
+
+	t->progress_cb = progress_cb;
+	t->error_cb = error_cb;
+	t->message_cb_payload = message_cb_payload;
+
+	return 0;
+}
+
 static int git_smart__connect(git_transport *transport, const char *url, int direction, int flags)
 {
 	transport_smart *t = (transport_smart *)transport;
@@ -233,11 +248,10 @@ int git_transport_smart(git_transport **out, void *param)
 	if (!param)
 		return -1;
 
-	t = (transport_smart *)git__malloc(sizeof(transport_smart));
+	t = (transport_smart *)git__calloc(sizeof(transport_smart), 1);
 	GITERR_CHECK_ALLOC(t);
 
-	memset(t, 0x0, sizeof(transport_smart));
-
+	t->parent.set_callbacks = git_smart__set_callbacks;
 	t->parent.connect = git_smart__connect;
 	t->parent.close = git_smart__close;
 	t->parent.free = git_smart__free;

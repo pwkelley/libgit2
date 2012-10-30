@@ -22,9 +22,15 @@ typedef enum {
 	GIT_TRANSPORTFLAGS_NO_CHECK_CERT = 1
 } git_transport_flags_t;
 
+typedef void (*git_transport_message_cb)(const char *str, int len, void *data);
+
 typedef struct git_transport {
-	/* An opaque value which is passed to callback functions */
-	void *cb_data;
+	/* Set progress and error callbacks */
+	int (*set_callbacks)(
+		struct git_transport *transport,
+		git_transport_message_cb progress_cb,
+		git_transport_message_cb error_cb,
+		void *payload);
 
 	/* Connect the transport to the remote repository, using the given direction. */
 	int (*connect)(
@@ -71,12 +77,6 @@ typedef struct git_transport {
 
 	/* Frees/destructs the git_transport object. */
 	void (*free)(struct git_transport *transport);
-
-	/* Optional callback function to be invoked during the download_pack operation. */
-	void (*progress_cb)(const char *str, int len, void *data);
-
-	/* Optional callback function to be invoked in the event of an error. */
-	void (*error_cb)(const char *str, int len, void *data);
 } git_transport;
 
 /* Function to use to create a transport from a URL. The transport database is scanned

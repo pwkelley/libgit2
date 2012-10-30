@@ -445,9 +445,9 @@ int git_smart__download_pack(
 			goto on_error;
 
 		if (pkt->type == GIT_PKT_PROGRESS) {
-			if (transport->progress_cb) {
+			if (t->progress_cb) {
 				git_pkt_progress *p = (git_pkt_progress *) pkt;
-				transport->progress_cb(p->data, p->len, transport->cb_data);
+				t->progress_cb(p->data, p->len, t->message_cb_payload);
 			}
 			git__free(pkt);
 		} else if (pkt->type == GIT_PKT_DATA) {
