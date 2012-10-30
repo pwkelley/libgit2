@@ -123,8 +123,18 @@ typedef struct {
 /* smart_protocol.c */
 int git_smart__store_refs(transport_smart *t, int flushes);
 int git_smart__detect_caps(git_pkt_ref *pkt, transport_smart_caps *caps);
-int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, const git_vector *wants);
-int git_smart__download_pack(git_transport *transport, git_repository *repo, git_transfer_progress *stats, git_transfer_progress_callback progress_cb, void *progress_payload);
+
+int git_smart__negotiate_fetch(
+	git_transport *transport,
+	git_repository *repo,
+	const git_vector *wants);
+
+int git_smart__download_pack(
+	git_transport *transport,
+	git_repository *repo,
+	git_transfer_progress *stats,
+	git_transfer_progress_callback progress_cb,
+	void *progress_payload);
 
 /* smart.c */
 int git_smart__negotiation_step(git_transport *transport, void *data, size_t len);

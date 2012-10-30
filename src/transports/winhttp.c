@@ -27,7 +27,9 @@ static const char *upload_pack_ls_service_url = "/info/refs?service=git-upload-p
 static const char *upload_pack_service_url = "/git-upload-pack";
 static const wchar_t *get_verb = L"GET";
 static const wchar_t *post_verb = L"POST";
-static const int no_check_cert_flags = SECURITY_FLAG_IGNORE_CERT_CN_INVALID | SECURITY_FLAG_IGNORE_CERT_DATE_INVALID | SECURITY_FLAG_IGNORE_UNKNOWN_CA;
+static const int no_check_cert_flags = SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
+	SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
+	SECURITY_FLAG_IGNORE_UNKNOWN_CA;
 
 #define OWNING_SUBTRANSPORT(s) ((winhttp_subtransport *)(s)->parent.subtransport)
 
@@ -99,7 +101,8 @@ static int winhttp_stream_connect(winhttp_stream *s)
 
 	/* If requested, disable certificate validation */
 	if (t->use_ssl && t->no_check_cert) {
-		if (WinHttpSetOption(s->request, WINHTTP_OPTION_SECURITY_FLAGS, (LPVOID)&no_check_cert_flags, sizeof(no_check_cert_flags)) == FALSE) {
+		if (!WinHttpSetOption(s->request, WINHTTP_OPTION_SECURITY_FLAGS,
+			(LPVOID)&no_check_cert_flags, sizeof(no_check_cert_flags))) {
 			giterr_set(GITERR_OS, "Failed to set options to ignore cert errors");
 			goto on_error;
 		}

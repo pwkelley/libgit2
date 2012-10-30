@@ -26,37 +26,38 @@ typedef void (*git_transport_message_cb)(const char *str, int len, void *data);
 
 typedef struct git_transport {
 	/* Set progress and error callbacks */
-	int (*set_callbacks)(
-		struct git_transport *transport,
+	int (*set_callbacks)(struct git_transport *transport,
 		git_transport_message_cb progress_cb,
 		git_transport_message_cb error_cb,
 		void *payload);
 
-	/* Connect the transport to the remote repository, using the given direction. */
-	int (*connect)(
-		struct git_transport *transport,
+	/* Connect the transport to the remote repository, using the given
+	 * direction. */
+	int (*connect)(struct git_transport *transport,
 		const char *url,
 		int direction,
 		int flags);
 
-	/* This function may be called after a successful call to connect(). The provided callback is
-	 * invoked for each ref discovered on the remote end. */
-	int (*ls)(
-		struct git_transport *transport,
+	/* This function may be called after a successful call to connect(). The
+	 * provided callback is invoked for each ref discovered on the remote
+	 * end. */
+	int (*ls)(struct git_transport *transport,
 		git_headlist_cb list_cb,
 		void *payload);
 
 	/* Reserved until push is implemented. */
 	int (*push)(struct git_transport *transport);
 
-	/* This function may be called after a successful call to connect(), when the direction is FETCH. The function
-	 * performs a negotiation to calculate the wants list for the fetch. */
+	/* This function may be called after a successful call to connect(), when
+	 * the direction is FETCH. The function performs a negotiation to calculate
+	 * the wants list for the fetch. */
 	int (*negotiate_fetch)(struct git_transport *transport,
 		git_repository *repo,
 		const git_vector *wants);
 
-	/* This function may be called after a successful call to negotiate_fetch(), when the direction is FETCH. This function
-	 * retrieves the pack file for the fetch from the remote end. */
+	/* This function may be called after a successful call to negotiate_fetch(),
+	 * when the direction is FETCH. This function retrieves the pack file for
+	 * the fetch from the remote end. */
 	int (*download_pack)(struct git_transport *transport,
 		git_repository *repo,
 		git_transfer_progress *stats,
@@ -72,20 +73,22 @@ typedef struct git_transport {
 	/* Cancels any outstanding transport operation */
 	void (*cancel)(struct git_transport *transport);
 
-	/* This function is the reverse of connect() -- it terminates the connection to the remote end. */
+	/* This function is the reverse of connect() -- it terminates the
+	 * connection to the remote end. */
 	int (*close)(struct git_transport *transport);
 
 	/* Frees/destructs the git_transport object. */
 	void (*free)(struct git_transport *transport);
 } git_transport;
 
-/* Function to use to create a transport from a URL. The transport database is scanned
- * to find a transport that implements the scheme of the URI (i.e. git:// or http://)
- * and a transport object is returned to the caller. */
+/* Function to use to create a transport from a URL. The transport database
+ * is scanned to find a transport that implements the scheme of the URI (i.e.
+ * git:// or http://) and a transport object is returned to the caller. */
 int git_transport_new(git_transport **transport, const char *url);
 
-/* Function which checks to see if a transport could be created for the given URL (i.e.
- * checks to see if libgit2 has a transport that supports the given URL's scheme) */
+/* Function which checks to see if a transport could be created for the
+ * given URL (i.e. checks to see if libgit2 has a transport that supports
+ * the given URL's scheme) */
 int git_transport_valid_url(const char *url);
 
 /* Signature of a function which creates a transport */
@@ -144,7 +147,9 @@ typedef struct git_smart_subtransport {
 } git_smart_subtransport;
 
 /* A function which creates a new subtransport for the smart transport */
-typedef int (*git_smart_subtransport_cb)(git_smart_subtransport **out, git_transport* owner);
+typedef int (*git_smart_subtransport_cb)(
+	git_smart_subtransport **out,
+	git_transport* owner);
 
 typedef struct git_smart_subtransport_definition {
 	/* The function to use to create the git_smart_subtransport */
@@ -155,9 +160,17 @@ typedef struct git_smart_subtransport_definition {
 } git_smart_subtransport_definition;
 
 /* Smart transport subtransports that come with libgit2 */
-int git_smart_subtransport_winhttp(git_smart_subtransport **out, git_transport* owner);
-int git_smart_subtransport_http(git_smart_subtransport **out, git_transport* owner);
-int git_smart_subtransport_git(git_smart_subtransport **out, git_transport* owner);
+int git_smart_subtransport_winhttp(
+	git_smart_subtransport **out,
+	git_transport* owner);
+
+int git_smart_subtransport_http(
+	git_smart_subtransport **out,
+	git_transport* owner);
+
+int git_smart_subtransport_git(
+	git_smart_subtransport **out,
+	git_transport* owner);
 
 /*
  *** End interface for subtransports for the smart transport ***
