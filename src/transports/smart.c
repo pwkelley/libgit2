@@ -244,8 +244,10 @@ int git_transport_smart(git_transport **out, void *param)
 	transport_smart *t;
 	git_smart_subtransport_definition *definition = (git_smart_subtransport_definition *)param;
 
-	if (!param)
+	if (!param) {
+		giterr_set(GITERR_INVALID, "Invalid parameter to git_transport_smart");
 		return -1;
+	}
 
 	t = (transport_smart *)git__calloc(sizeof(transport_smart), 1);
 	GITERR_CHECK_ALLOC(t);
@@ -271,7 +273,7 @@ int git_transport_smart(git_transport **out, void *param)
 	if (definition->callback(&t->wrapped, &t->parent) < 0) {
 		git__free(t);
 		return -1;
-	}	
+	}
 
 	*out = (git_transport *) t;
 	return 0;

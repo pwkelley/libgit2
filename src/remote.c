@@ -456,6 +456,7 @@ const char* git_remote__urlfordirection(git_remote *remote, int direction)
 		return remote->pushurl ? remote->pushurl : remote->url;
 	}
 
+	giterr_set(GITERR_NET, "Invalid direction");
 	return NULL;
 }
 

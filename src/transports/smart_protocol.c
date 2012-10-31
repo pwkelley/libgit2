@@ -23,8 +23,10 @@ int git_smart__store_refs(transport_smart *t, int flushes)
 		else
 			error = GIT_EBUFS;
 
-		if (error < 0 && error != GIT_EBUFS)
+		if (error < 0 && error != GIT_EBUFS) {
+			giterr_set(GITERR_NET, "Test error message");
 			return -1;
+		}
 
 		if (error == GIT_EBUFS) {
 			if ((recvd = gitno_recv(buf)) < 0)

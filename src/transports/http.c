@@ -318,8 +318,10 @@ static int http_stream_alloc(http_subtransport *t, git_smart_subtransport_stream
 {
 	http_stream *s;	
 
-	if (!stream)
+	if (!stream) {
+		giterr_set(GITERR_INVALID, "Invalid parameter to http_stream_alloc");
 		return -1;
+	}
 
 	s = (http_stream *)git__calloc(sizeof(http_stream), 1);
 	GITERR_CHECK_ALLOC(s);
@@ -379,8 +381,10 @@ static int http_action(
 	const char *default_port;
 	int flags = 0, ret;
 
-	if (!stream)
+	if (!stream) {
+		giterr_set(GITERR_INVALID, "Invalid parameter to http_action");
 		return -1;
+	}
 
 	if (!t->host || !t->port || !t->path) {
 		if (!git__prefixcmp(url, prefix_http)) {
@@ -431,6 +435,7 @@ static int http_action(
 			return http_uploadpack(t, stream);
 	}
 	
+	giterr_set(GITERR_INVALID, "Invalid action to http_action");
 	*stream = NULL;
 	return -1;
 }
@@ -451,8 +456,10 @@ int git_smart_subtransport_http(git_smart_subtransport **out, git_transport *own
 	http_subtransport *t;
 	int flags;
 
-	if (!out)
+	if (!out) {
+		giterr_set(GITERR_INVALID, "Invalid parameter to git_smart_subtransport_http");
 		return -1;
+	}
 
 	t = (http_subtransport *)git__calloc(sizeof(http_subtransport), 1);
 	GITERR_CHECK_ALLOC(t);

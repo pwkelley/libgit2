@@ -52,7 +52,7 @@
 /**
  * Check a pointer allocation result, returning -1 if it failed.
  */
-#define GITERR_CHECK_ALLOC(ptr) if (ptr == NULL) { return -1; }
+#define GITERR_CHECK_ALLOC(ptr) if (ptr == NULL) { giterr_set_oom(); return -1; }
 
 /**
  * Set the error message for this thread, formatting as needed.
