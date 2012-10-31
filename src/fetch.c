@@ -107,7 +107,10 @@ int git_fetch_negotiate(git_remote *remote)
 	 * Now we have everything set up so we can start tell the
 	 * server what we want and what we have.
 	 */
-	return t->negotiate_fetch(t, remote->repo, (git_remote_head **)remote->refs.contents, remote->refs.length);
+	return t->negotiate_fetch(t,
+		remote->repo,
+		(const git_remote_head * const *)remote->refs.contents,
+		remote->refs.length);
 }
 
 int git_fetch_download_pack(
