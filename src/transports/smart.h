@@ -5,7 +5,6 @@
  * a Linking Exception. For full terms see the included COPYING file.
  */
 #include "git2.h"
-#include "transport.h"
 #include "vector.h"
 #include "netops.h"
 #include "buffer.h"

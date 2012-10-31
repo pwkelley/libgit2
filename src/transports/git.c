@@ -6,7 +6,6 @@
  */
 
 #include "git2.h"
-#include "transport.h"
 #include "buffer.h"
 #include "netops.h"
 

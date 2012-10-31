@@ -9,9 +9,9 @@
 #include "git2/refs.h"
 #include "git2/revwalk.h"
 #include "git2/indexer.h"
+#include "git2/transport.h"
 
 #include "common.h"
-#include "transport.h"
 #include "remote.h"
 #include "refspec.h"
 #include "pack.h"

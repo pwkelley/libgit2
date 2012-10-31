@@ -8,7 +8,7 @@
 #ifdef GIT_WINHTTP
 
 #include "git2.h"
-#include "transport.h"
+#include "git2/transport.h"
 #include "buffer.h"
 #include "posix.h"
 #include "netops.h"

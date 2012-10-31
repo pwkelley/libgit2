@@ -11,7 +11,7 @@
 #include "git2/object.h"
 #include "git2/tag.h"
 #include "refs.h"
-#include "transport.h"
+#include "git2/transport.h"
 #include "posix.h"
 #include "path.h"
 #include "buffer.h"

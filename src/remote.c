@@ -467,11 +467,15 @@ int git_remote_connect(git_remote *remote, int direction)
 
 	assert(remote);
 
+	t = remote->transport;
+
 	url = git_remote__urlfordirection(remote, direction);
 	if (url == NULL )
 		return -1;
 
-	if (git_transport_new(&t, url) < 0)
+	/* A transport could have been supplied in advance with
+	 * git_remote_set_transport */
+	if (!t && git_transport_new(&t, url) < 0)
 		return -1;
 
 	if (t->set_callbacks &&
@@ -796,6 +800,19 @@ void git_remote_set_callbacks(git_remote *remote, git_remote_callbacks *callback
 			remote->callbacks.progress,
 			NULL,
 			remote->callbacks.data);
+}
+
+int git_remote_set_transport(git_remote *remote, git_transport *transport)
+{
+	assert(remote && transport);
+
+	if (remote->transport) {
+		giterr_set(GITERR_NET, "A transport is already bound to this remote");
+		return -1;
+	}
+
+	remote->transport = transport;
+	return 0;
 }
 
 const git_transfer_progress* git_remote_stats(git_remote *remote)

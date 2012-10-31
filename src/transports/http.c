@@ -8,7 +8,6 @@
 
 #include "git2.h"
 #include "http_parser.h"
-#include "transport.h"
 #include "buffer.h"
 #include "netops.h"
 

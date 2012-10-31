@@ -94,10 +94,19 @@ int git_transport_valid_url(const char *url);
 /* Signature of a function which creates a transport */
 typedef int (*git_transport_cb)(git_transport **transport, void *param);
 
-/* Transports which come with libgit2 (match git_transport_cb) */
-int git_transport_dummy(git_transport **transport, void *param);
-int git_transport_local(git_transport **transport, void *param);
-int git_transport_smart(git_transport **transport, void *param);
+/* Transports which come with libgit2 (match git_transport_cb). The expected
+ * value for "param" is listed in-line below. */
+int git_transport_dummy(
+	git_transport **transport,
+	/* NULL */ void *param);
+
+int git_transport_local(
+	git_transport **transport,
+	/* NULL */ void *param);
+
+int git_transport_smart(
+	git_transport **transport,
+	/* (git_smart_subtransport_definition *) */ void *param);
 
 /*
  *** End of base transport interface ***

@@ -8,7 +8,7 @@
 #include "git2/types.h"
 #include "git2/remote.h"
 #include "git2/net.h"
-#include "transport.h"
+#include "git2/transport.h"
 #include "path.h"
 
 typedef struct transport_definition {
