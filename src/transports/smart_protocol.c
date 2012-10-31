@@ -203,7 +203,7 @@ on_error:
 	return -1;
 }
 
-int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, git_remote_head **refs, size_t count)
+int git_smart__negotiate_fetch(git_transport *transport, git_repository *repo, const git_remote_head * const *refs, size_t count)
 {
 	transport_smart *t = (transport_smart *)transport;
 	gitno_buffer *buf = &t->buffer;

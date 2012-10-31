@@ -194,7 +194,7 @@ static int local_ls(git_transport *transport, git_headlist_cb list_cb, void *pay
 static int local_negotiate_fetch(
 	git_transport *transport,
 	git_repository *repo,
-	git_remote_head **refs, size_t count)
+	const git_remote_head * const *refs, size_t count)
 {
 	GIT_UNUSED(transport);
 	GIT_UNUSED(repo);

@@ -334,7 +334,7 @@ int git_pkt_buffer_flush(git_buf *buf)
 	return git_buf_put(buf, pkt_flush_str, strlen(pkt_flush_str));
 }
 
-static int buffer_want_with_caps(git_remote_head *head, transport_smart_caps *caps, git_buf *buf)
+static int buffer_want_with_caps(const git_remote_head *head, transport_smart_caps *caps, git_buf *buf)
 {
 	git_buf str = GIT_BUF_INIT;
 	char oid[GIT_OID_HEXSZ +1] = {0};
@@ -375,10 +375,14 @@ static int buffer_want_with_caps(git_remote_head *head, transport_smart_caps *ca
  * is overwrite the OID each time.
  */
 
-int git_pkt_buffer_wants(git_remote_head **refs, size_t count, transport_smart_caps *caps, git_buf *buf)
+int git_pkt_buffer_wants(
+	const git_remote_head * const *refs,
+	size_t count,
+	transport_smart_caps *caps,
+	git_buf *buf)
 {
 	size_t i = 0;
-	git_remote_head *head;
+	const git_remote_head *head;
 
 	if (caps->common) {
 		for (; i < count; ++i) {

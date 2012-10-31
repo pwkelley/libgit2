@@ -52,7 +52,7 @@ typedef struct git_transport {
 	 * the wants list for the fetch. */
 	int (*negotiate_fetch)(struct git_transport *transport,
 		git_repository *repo,
-		git_remote_head **refs,
+		const git_remote_head * const *refs,
 		size_t count);
 
 	/* This function may be called after a successful call to negotiate_fetch(),

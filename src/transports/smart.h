@@ -127,7 +127,7 @@ int git_smart__detect_caps(git_pkt_ref *pkt, transport_smart_caps *caps);
 int git_smart__negotiate_fetch(
 	git_transport *transport,
 	git_repository *repo,
-	git_remote_head **refs,
+	const git_remote_head * const *refs,
 	size_t count);
 
 int git_smart__download_pack(
@@ -145,6 +145,6 @@ int git_pkt_parse_line(git_pkt **head, const char *line, const char **out, size_
 int git_pkt_buffer_flush(git_buf *buf);
 int git_pkt_send_flush(GIT_SOCKET s);
 int git_pkt_buffer_done(git_buf *buf);
-int git_pkt_buffer_wants(git_remote_head **refs, size_t count, transport_smart_caps *caps, git_buf *buf);
+int git_pkt_buffer_wants(const git_remote_head * const *refs, size_t count, transport_smart_caps *caps, git_buf *buf);
 int git_pkt_buffer_have(git_oid *oid, git_buf *buf);
 void git_pkt_free(git_pkt *pkt);
