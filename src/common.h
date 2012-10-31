@@ -52,7 +52,7 @@
 /**
  * Check a pointer allocation result, returning -1 if it failed.
  */
-#define GITERR_CHECK_ALLOC(ptr) if (ptr == NULL) { return -1; }
+#define GITERR_CHECK_ALLOC(ptr) if (ptr == NULL) { giterr_set_oom(); return -1; }
 
 /**
  * Set the error message for this thread, formatting as needed.
@@ -68,8 +68,5 @@ void giterr_set_regex(const regex_t *regex, int error_code);
 /* NOTE: other giterr functions are in the public errors.h header file */
 
 #include "util.h"
-
-typedef struct git_transport git_transport;
-typedef struct gitno_buffer gitno_buffer;
 
 #endif /* INCLUDE_common_h__ */
