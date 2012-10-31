@@ -191,11 +191,15 @@ static int local_ls(git_transport *transport, git_headlist_cb list_cb, void *pay
 	return 0;
 }
 
-static int local_negotiate_fetch(git_transport *transport, git_repository *repo, const git_vector *wants)
+static int local_negotiate_fetch(
+	git_transport *transport,
+	git_repository *repo,
+	git_remote_head **refs, size_t count)
 {
 	GIT_UNUSED(transport);
 	GIT_UNUSED(repo);
-	GIT_UNUSED(wants);
+	GIT_UNUSED(refs);
+	GIT_UNUSED(count);
 
 	giterr_set(GITERR_NET, "Fetch via local transport isn't implemented. Sorry");
 	return -1;

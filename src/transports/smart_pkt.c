@@ -375,28 +375,28 @@ static int buffer_want_with_caps(git_remote_head *head, transport_smart_caps *ca
  * is overwrite the OID each time.
  */
 
-int git_pkt_buffer_wants(const git_vector *refs, transport_smart_caps *caps, git_buf *buf)
+int git_pkt_buffer_wants(git_remote_head **refs, size_t count, transport_smart_caps *caps, git_buf *buf)
 {
-	unsigned int i = 0;
+	size_t i = 0;
 	git_remote_head *head;
 
 	if (caps->common) {
-		for (; i < refs->length; ++i) {
-			head = refs->contents[i];
+		for (; i < count; ++i) {
+			head = refs[i];
 			if (!head->local)
 				break;
 		}
 
-		if (buffer_want_with_caps(refs->contents[i], caps, buf) < 0)
+		if (buffer_want_with_caps(refs[i], caps, buf) < 0)
 			return -1;
 
 		i++;
 	}
 
-	for (; i < refs->length; ++i) {
+	for (; i < count; ++i) {
 		char oid[GIT_OID_HEXSZ];
 
-		head = refs->contents[i];
+		head = refs[i];
 		if (head->local)
 			continue;
 

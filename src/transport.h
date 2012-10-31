@@ -9,7 +9,6 @@
 
 #include "git2/indexer.h"
 #include "git2/net.h"
-#include "vector.h"
 
 /*
  *** Begin base transport interface ***
@@ -53,7 +52,8 @@ typedef struct git_transport {
 	 * the wants list for the fetch. */
 	int (*negotiate_fetch)(struct git_transport *transport,
 		git_repository *repo,
-		const git_vector *wants);
+		git_remote_head **refs,
+		size_t count);
 
 	/* This function may be called after a successful call to negotiate_fetch(),
 	 * when the direction is FETCH. This function retrieves the pack file for
