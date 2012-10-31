@@ -59,6 +59,8 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 	int error;
 	git_pkt *pkt;
 
+	printf("Hey!\n");
+
 	git_smart__reset_stream(t);
 
 	t->url = git__strdup(url);
@@ -71,6 +73,8 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 	{
 		if ((error = t->wrapped->action(&stream, t->wrapped, t->url, GIT_SERVICE_UPLOADPACK_LS)) < 0)
 			return error;
+
+		printf("Hey 2!\n");
 		
 		/* Save off the current stream (i.e. socket) that we are working with */
 		t->current_stream = stream;
@@ -80,6 +84,8 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 		/* 2 flushes for RPC; 1 for stateful */
 		if ((error = git_smart__store_refs(t, t->rpc ? 2 : 1)) < 0)
 			return error;
+
+		printf("Hey 3!\n");
 
 		/* Strip the comment packet for RPC */
 		if (t->rpc) {
@@ -95,6 +101,8 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 			}
 		}
 
+		printf("Hey 4!\n");
+
 		/* We now have loaded the refs. */
 		t->have_refs = 1;
 
@@ -103,6 +111,8 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 
 		if (t->rpc)
 			git_smart__reset_stream(t);
+
+		printf("Hey 5!\n");
 
 		/* We're now logically connected. */
 		t->connected = 1;
