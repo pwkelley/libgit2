@@ -113,6 +113,18 @@ int git_transport_smart(
  *** Begin interface for subtransports for the smart transport ***
  */
 
+/* The smart transport knows how to speak the git protocol, but it has no
+ * knowledge of how to establish a connection between it and another endpoint,
+ * or how to move data back and forth. For this, a subtransport interface is
+ * declared, and the smart transport delegates this work to the subtransports.
+ * Three subtransports are implemented: git, http, and winhttp. (The http and
+ * winhttp transports each implement both http and https.) */
+
+/* Subtransports can either be RPC = 0 (persistent connection) or RPC = 1
+ * (request/response). The smart transport handles the differences in its own
+ * logic. The git subtransport is RPC = 0, while http and winhttp are both
+ * RPC = 1. */
+
 /* Actions that the smart transport can ask
  * a subtransport to perform */
 typedef enum {
