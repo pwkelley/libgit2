@@ -4,11 +4,20 @@
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
  */
-#ifndef INCLUDE_transport_h__
-#define INCLUDE_transport_h__
+#ifndef INCLUDE_git_transport_h__
+#define INCLUDE_git_transport_h__
 
-#include "git2/indexer.h"
-#include "git2/net.h"
+#include "indexer.h"
+#include "net.h"
+
+/**
+ * @file git2/transport.h
+ * @brief Git transport interfaces and functions
+ * @defgroup git_transport interfaces and functions
+ * @ingroup Git
+ * @{
+ */
+GIT_BEGIN_DECL
 
 /*
  *** Begin base transport interface ***
@@ -81,30 +90,63 @@ typedef struct git_transport {
 	void (*free)(struct git_transport *transport);
 } git_transport;
 
-/* Function to use to create a transport from a URL. The transport database
+/**
+ * Function to use to create a transport from a URL. The transport database
  * is scanned to find a transport that implements the scheme of the URI (i.e.
- * git:// or http://) and a transport object is returned to the caller. */
-int git_transport_new(git_transport **transport, const char *url);
+ * git:// or http://) and a transport object is returned to the caller.
+ *
+ * @param transport The newly created transport (out)
+ * @param url The URL to connect to
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_transport_new(git_transport **transport, const char *url);
 
-/* Function which checks to see if a transport could be created for the
+/**
+ * Function which checks to see if a transport could be created for the
  * given URL (i.e. checks to see if libgit2 has a transport that supports
- * the given URL's scheme) */
-int git_transport_valid_url(const char *url);
+ * the given URL's scheme)
+ *
+ * @param url The URL to check
+ * @return Zero if the URL is not valid; nonzero otherwise
+ */
+GIT_EXTERN(int) git_transport_valid_url(const char *url);
 
 /* Signature of a function which creates a transport */
 typedef int (*git_transport_cb)(git_transport **transport, void *param);
 
 /* Transports which come with libgit2 (match git_transport_cb). The expected
  * value for "param" is listed in-line below. */
-int git_transport_dummy(
+
+/**
+ * Create an instance of the dummy transport.
+ *
+ * @param transport The newly created transport (out)
+ * @param param You must pass NULL for this parameter.
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_transport_dummy(
 	git_transport **transport,
 	/* NULL */ void *param);
 
-int git_transport_local(
+/**
+ * Create an instance of the local transport.
+ *
+ * @param transport The newly created transport (out)
+ * @param param You must pass NULL for this parameter.
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_transport_local(
 	git_transport **transport,
 	/* NULL */ void *param);
 
-int git_transport_smart(
+/**
+ * Create an instance of the smart transport.
+ *
+ * @param transport The newly created transport (out)
+ * @param param A pointer to a git_smart_subtransport_definition
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_transport_smart(
 	git_transport **transport,
 	/* (git_smart_subtransport_definition *) */ void *param);
 
@@ -181,15 +223,28 @@ typedef struct git_smart_subtransport_definition {
 } git_smart_subtransport_definition;
 
 /* Smart transport subtransports that come with libgit2 */
-int git_smart_subtransport_winhttp(
+
+/**
+ * Create an instance of the http subtransport. This subtransport
+ * also supports https. On Win32, this subtransport may be implemented
+ * using the WinHTTP library.
+ *
+ * @param out The newly created subtransport
+ * @param owner The smart transport to own this subtransport
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_smart_subtransport_http(
 	git_smart_subtransport **out,
 	git_transport* owner);
 
-int git_smart_subtransport_http(
-	git_smart_subtransport **out,
-	git_transport* owner);
-
-int git_smart_subtransport_git(
+/**
+ * Create an instance of the git subtransport.
+ *
+ * @param out The newly created subtransport
+ * @param owner The smart transport to own this subtransport
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_smart_subtransport_git(
 	git_smart_subtransport **out,
 	git_transport* owner);
 
@@ -197,4 +252,6 @@ int git_smart_subtransport_git(
  *** End interface for subtransports for the smart transport ***
  */
 
+/** @} */
+GIT_END_DECL
 #endif

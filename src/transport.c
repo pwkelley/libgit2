@@ -21,12 +21,7 @@ typedef struct transport_definition {
 static transport_definition local_transport_definition = { "file://", 1, git_transport_local, NULL };
 static transport_definition dummy_transport_definition = { NULL, 1, git_transport_dummy, NULL };
 
-#ifdef GIT_WINHTTP
-static git_smart_subtransport_definition http_subtransport_definition = { git_smart_subtransport_winhttp, 1 };
-#else
 static git_smart_subtransport_definition http_subtransport_definition = { git_smart_subtransport_http, 1 };
-#endif
-
 static git_smart_subtransport_definition git_subtransport_definition = { git_smart_subtransport_git, 0 };
 
 static transport_definition transports[] = {
