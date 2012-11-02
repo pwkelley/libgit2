@@ -18,6 +18,8 @@
 #define GIT_CAP_SIDE_BAND "side-band"
 #define GIT_CAP_SIDE_BAND_64K "side-band-64k"
 #define GIT_CAP_INCLUDE_TAG "include-tag"
+#define GIT_CAP_DELETE_REFS "delete-refs"
+#define GIT_CAP_REPORT_STATUS "report-status"
 
 enum git_pkt_type {
 	GIT_PKT_CMD,
@@ -110,7 +112,9 @@ typedef struct transport_smart_caps {
 		multi_ack: 1,
 		side_band:1,
 		side_band_64k:1,
-		include_tag:1;
+		include_tag:1,
+		delete_refs:1,
+		report_status:1;
 } transport_smart_caps;
 
 typedef void (*packetsize_cb)(int received, void *payload);
