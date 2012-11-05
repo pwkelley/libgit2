@@ -28,14 +28,23 @@ static const char *prefix_https = "https://";
 static const char *upload_pack_service = "upload-pack";
 static const char *upload_pack_ls_service_url = "/info/refs?service=git-upload-pack";
 static const char *upload_pack_service_url = "/git-upload-pack";
+static const char *receive_pack_service = "receive-pack";
+static const char *receive_pack_ls_service_url = "/info/refs?service=git-receive-pack";
+static const char *receive_pack_service_url = "/git-receive-pack";
 static const wchar_t *get_verb = L"GET";
 static const wchar_t *post_verb = L"POST";
+static const wchar_t *basic_authtype = L"Basic";
+static const wchar_t *basic_authheader = L"Authorization: Basic ";
 static const wchar_t *pragma_nocache = L"Pragma: no-cache";
 static const int no_check_cert_flags = SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
 	SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
 	SECURITY_FLAG_IGNORE_UNKNOWN_CA;
 
 #define OWNING_SUBTRANSPORT(s) ((winhttp_subtransport *)(s)->parent.subtransport)
+
+typedef enum {
+	GIT_WINHTTP_AUTH_BASIC = 1,
+} winhttp_authmechanism_t;
 
 typedef struct {
 	git_smart_subtransport_stream parent;
@@ -49,15 +58,60 @@ typedef struct {
 
 typedef struct {
 	git_smart_subtransport parent;
-	git_transport *owner;
+	transport_smart *owner;
 	const char *path;
 	char *host;
 	char *port;
+	git_cred *cred;
+	int auth_mechanism;
 	HINTERNET session;
 	HINTERNET connection;
 	unsigned use_ssl : 1,
 		no_check_cert : 1;
 } winhttp_subtransport;
+
+static int base64_cred(git_buf *b64, const char *username, const char *password)
+{
+	char *raw;
+	int error;
+
+	raw = (char *)git__malloc(strlen(username) + strlen(password) + 2);
+	GITERR_CHECK_ALLOC(raw);
+
+	strcpy(raw, username);
+	strcat(raw, ":");
+	strcat(raw, password);
+
+	error = git_buf_put_base64(b64, raw, strlen(raw));
+	git__free(raw);
+
+	return error;
+}
+
+static int apply_basic_credential(HINTERNET request, git_cred *cred)
+{
+	git_buf buf = GIT_BUF_INIT;
+	wchar_t header[GIT_WIN_PATH];
+	git_cred_userpass_plaintext *c = (git_cred_userpass_plaintext *)cred;
+	int len;
+
+	if (base64_cred(&buf, c->username, c->password) < 0) {
+		git_buf_free(&buf);
+		return -1;
+	}
+
+	wcscpy(header, basic_authheader);
+	len = wcslen(header);
+	git__utf8_to_16(header + len, GIT_WIN_PATH - len, git_buf_cstr(&buf));
+	git_buf_free(&buf);
+
+	if (!WinHttpAddRequestHeaders(request, header, (ULONG) -1L, WINHTTP_ADDREQ_FLAG_ADD)) {
+		giterr_set(GITERR_OS, "Failed to add a header to the request");
+		return -1;
+	}
+
+	return 0;
+}
 
 static int winhttp_stream_connect(winhttp_stream *s)
 {
@@ -127,6 +181,13 @@ static int winhttp_stream_connect(winhttp_stream *s)
 		}
 	}
 
+	/* If we have a credential on the subtransport, apply it to the request */
+	if (t->cred &&
+		t->cred->credtype == GIT_CREDTYPE_USERPASS_PLAINTEXT &&
+		t->auth_mechanism == GIT_WINHTTP_AUTH_BASIC &&
+		apply_basic_credential(s->request, t->cred) < 0)
+		goto on_error;
+
 	/* We've done everything up to calling WinHttpSendRequest. */
 
 	return 0;
@@ -134,6 +195,64 @@ static int winhttp_stream_connect(winhttp_stream *s)
 on_error:
 	git_buf_free(&buf);
 	return -1;
+}
+
+static int parse_unauthorized_response(
+	HINTERNET request,
+	int *allowed_types,
+	int *auth_mechanism)
+{
+	DWORD index, buf_size, last_error;
+	int error = 0;
+	wchar_t *buf = NULL;
+
+	*allowed_types = 0;
+
+	for (index = 0; ; index++) {
+		/* Make a first call to ask for the size of the buffer to allocate
+		 * to hold the WWW-Authenticate header */
+		if (!WinHttpQueryHeaders(request, WINHTTP_QUERY_WWW_AUTHENTICATE,
+			WINHTTP_HEADER_NAME_BY_INDEX, WINHTTP_NO_OUTPUT_BUFFER,
+			&buf_size, &index))
+		{
+			last_error = GetLastError();
+
+			if (ERROR_WINHTTP_HEADER_NOT_FOUND == last_error) {
+				/* End of enumeration */
+				break;
+			} else if (ERROR_INSUFFICIENT_BUFFER == last_error) {
+				git__free(buf);
+				buf = (wchar_t *)git__malloc(buf_size);
+
+				if (!buf) {
+					error = -1;
+					break;
+				}
+			} else {
+				giterr_set(GITERR_OS, "Failed to read WWW-Authenticate header");
+				error = -1;
+				break;
+			}
+		}
+
+		/* Actually receive the data into our now-allocated buffer */
+		if (!WinHttpQueryHeaders(request, WINHTTP_QUERY_WWW_AUTHENTICATE,
+			WINHTTP_HEADER_NAME_BY_INDEX, buf,
+			&buf_size, &index)) {
+			giterr_set(GITERR_OS, "Failed to read WWW-Authenticate header");
+			error = -1;
+			break;
+		}
+
+		if (!wcsncmp(buf, basic_authtype, 5) &&
+			(buf[5] == L'\0' || buf[5] == L' ')) {
+			*allowed_types |= GIT_CREDTYPE_USERPASS_PLAINTEXT;
+			*auth_mechanism = GIT_WINHTTP_AUTH_BASIC;
+		}
+	}
+
+	git__free(buf);
+	return error;
 }
 
 static int winhttp_stream_read(
@@ -145,6 +264,7 @@ static int winhttp_stream_read(
 	winhttp_stream *s = (winhttp_stream *)stream;
 	winhttp_subtransport *t = OWNING_SUBTRANSPORT(s);
 
+replay:
 	/* Connect if necessary */
 	if (!s->request && winhttp_stream_connect(s) < 0)
 		return -1;
@@ -180,6 +300,31 @@ static int winhttp_stream_read(
 			WINHTTP_NO_HEADER_INDEX)) {
 				giterr_set(GITERR_OS, "Failed to retreive status code");
 				return -1;
+		}
+
+		/* Handle authentication failures */
+		if (HTTP_STATUS_DENIED == status_code &&
+			get_verb == s->verb && t->owner->cred_acquire_cb) {
+			int allowed_types;
+
+			if (parse_unauthorized_response(s->request, &allowed_types, &t->auth_mechanism) < 0)
+				return -1;
+
+			if (allowed_types &&
+				(!t->cred || 0 == (t->cred->credtype & allowed_types))) {
+
+				if (t->owner->cred_acquire_cb(&t->cred, t->owner->url, allowed_types) < 0)
+					return -1;
+
+				assert(t->cred);
+
+				WinHttpCloseHandle(s->request);
+				s->request = NULL;
+				s->sent_request = 0;
+
+				/* Successfully acquired a credential */
+				goto replay;
+			}
 		}
 
 		if (HTTP_STATUS_OK != status_code) {
@@ -401,6 +546,52 @@ static int winhttp_uploadpack(
 	return 0;
 }
 
+static int winhttp_receivepack_ls(
+	winhttp_subtransport *t,
+	const char *url,
+	git_smart_subtransport_stream **stream)
+{
+	winhttp_stream *s;
+
+	if (!t->connection &&
+		winhttp_connect(t, url) < 0)
+		return -1;
+
+	if (winhttp_stream_alloc(t, stream) < 0)
+		return -1;
+
+	s = (winhttp_stream *)*stream;
+
+	s->service = receive_pack_service;
+	s->service_url = receive_pack_ls_service_url;
+	s->verb = get_verb;
+
+	return 0;
+}
+
+static int winhttp_receivepack(
+	winhttp_subtransport *t,
+	const char *url,
+	git_smart_subtransport_stream **stream)
+{
+	winhttp_stream *s;
+
+	if (!t->connection &&
+		winhttp_connect(t, url) < 0)
+		return -1;
+
+	if (winhttp_stream_alloc(t, stream) < 0)
+		return -1;
+
+	s = (winhttp_stream *)*stream;
+
+	s->service = receive_pack_service;
+	s->service_url = receive_pack_service_url;
+	s->verb = post_verb;
+
+	return 0;
+}
+
 static int winhttp_action(
 	git_smart_subtransport_stream **stream,
 	git_smart_subtransport *smart_transport,
@@ -419,6 +610,12 @@ static int winhttp_action(
 
 		case GIT_SERVICE_UPLOADPACK:
 			return winhttp_uploadpack(t, url, stream);
+
+		case GIT_SERVICE_RECEIVEPACK_LS:
+			return winhttp_receivepack_ls(t, url, stream);
+
+		case GIT_SERVICE_RECEIVEPACK:
+			return winhttp_receivepack(t, url, stream);
 	}
 
 	*stream = NULL;
@@ -431,6 +628,11 @@ static void winhttp_free(git_smart_subtransport *smart_transport)
 	
 	git__free(t->host);
 	git__free(t->port);
+
+	if (t->cred) {
+		t->cred->free(t->cred);
+		t->cred = NULL;
+	}
 
 	if (t->connection) {
 		WinHttpCloseHandle(t->connection);
@@ -456,7 +658,7 @@ int git_smart_subtransport_http(git_smart_subtransport **out, git_transport *own
 	t = (winhttp_subtransport *)git__calloc(sizeof(winhttp_subtransport), 1);
 	GITERR_CHECK_ALLOC(t);
 
-	t->owner = owner;
+	t->owner = (transport_smart *)owner;
 	t->parent.action = winhttp_action;
 	t->parent.free = winhttp_free;
 

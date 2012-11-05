@@ -52,12 +52,18 @@ static int git_smart__set_callbacks(
 	return 0;
 }
 
-static int git_smart__connect(git_transport *transport, const char *url, int direction, int flags)
+static int git_smart__connect(
+	git_transport *transport,
+	const char *url,
+	git_cred_acquire_cb cred_acquire_cb,
+	int direction,
+	int flags)
 {
 	transport_smart *t = (transport_smart *)transport;
 	git_smart_subtransport_stream *stream;
 	int error;
 	git_pkt *pkt;
+	git_smart_service_t smart_service;
 
 	git_smart__reset_stream(t);
 
@@ -66,56 +72,56 @@ static int git_smart__connect(git_transport *transport, const char *url, int dir
 
 	t->direction = direction;
 	t->flags = flags;
+	t->cred_acquire_cb = cred_acquire_cb;
 
 	if (GIT_DIR_FETCH == direction)
-	{
-		if ((error = t->wrapped->action(&stream, t->wrapped, t->url, GIT_SERVICE_UPLOADPACK_LS)) < 0)
-			return error;
-		
-		/* Save off the current stream (i.e. socket) that we are working with */
-		t->current_stream = stream;
-
-		gitno_buffer_setup_callback(NULL, &t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
-
-		/* 2 flushes for RPC; 1 for stateful */
-		if ((error = git_smart__store_refs(t, t->rpc ? 2 : 1)) < 0)
-			return error;
-
-		/* Strip the comment packet for RPC */
-		if (t->rpc) {
-			pkt = (git_pkt *)git_vector_get(&t->refs, 0);
-
-			if (!pkt || GIT_PKT_COMMENT != pkt->type) {
-				giterr_set(GITERR_NET, "Invalid response");
-				return -1;
-			} else {
-				/* Remove the comment pkt from the list */
-				git_vector_remove(&t->refs, 0);
-				git__free(pkt);
-			}
-		}
-
-		/* We now have loaded the refs. */
-		t->have_refs = 1;
-
-		if (git_smart__detect_caps((git_pkt_ref *)git_vector_get(&t->refs, 0), &t->caps) < 0)
-			return -1;
-
-		if (t->rpc)
-			git_smart__reset_stream(t);
-
-		/* We're now logically connected. */
-		t->connected = 1;
-
-		return 0;
-	}
-	else
-	{
-		giterr_set(GITERR_NET, "Push not implemented");
+		smart_service = GIT_SERVICE_UPLOADPACK_LS;
+	else if (GIT_DIR_PUSH == direction)
+		smart_service = GIT_SERVICE_RECEIVEPACK_LS;
+	else {
+		giterr_set(GITERR_NET, "Invalid direction: %d", direction);
 		return -1;
 	}
 
-	return -1;
+	if ((error = t->wrapped->action(&stream, t->wrapped, t->url, smart_service)) < 0)
+		return error;
+
+	/* Save off the current stream (i.e. socket) that we are working with */
+	t->current_stream = stream;
+
+	gitno_buffer_setup_callback(NULL, &t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
+
+	/* 2 flushes for RPC; 1 for stateful */
+	if ((error = git_smart__store_refs(t, t->rpc ? 2 : 1)) < 0)
+		return error;
+
+	/* Strip the comment packet for RPC */
+	if (t->rpc) {
+		pkt = (git_pkt *)git_vector_get(&t->refs, 0);
+
+		if (!pkt || GIT_PKT_COMMENT != pkt->type) {
+			giterr_set(GITERR_NET, "Invalid response");
+			return -1;
+		} else {
+			/* Remove the comment pkt from the list */
+			git_vector_remove(&t->refs, 0);
+			git__free(pkt);
+		}
+	}
+
+	/* We now have loaded the refs. */
+	t->have_refs = 1;
+
+	if (git_smart__detect_caps((git_pkt_ref *)git_vector_get(&t->refs, 0), &t->caps) < 0)
+		return -1;
+
+	if (t->rpc)
+		git_smart__reset_stream(t);
+
+	/* We're now logically connected. */
+	t->connected = 1;
+
+	return 0;
 }
 
 static int git_smart__ls(git_transport *transport, git_headlist_cb list_cb, void *payload)
